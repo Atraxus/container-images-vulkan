@@ -1,6 +1,6 @@
 # Vulkan devel image 
 
-FROM ubuntu:16.04 as vulkan-khronos
+FROM ubuntu:18.04 as vulkan-khronos
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -38,7 +38,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python && \
 
 
 
-FROM nvidia/cudagl:10.1-base-ubuntu16.04
+FROM nvidia/cudagl:10.1-base-ubuntu18.04
 
 ENV NVIDIA_DRIVER_CAPABILITIES compute,graphics,utility
 
