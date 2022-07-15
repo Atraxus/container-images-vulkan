@@ -1,7 +1,8 @@
 # Contribute to the Vulkan Project
 
-Want to hack on the NVIDIA Vulkan Container Project? Awesome!
-We only require you to sign your work, the below section describes this!
+Thanks for contributing to the base Vulkan containers from NVIDIA.
+This repository is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). 
+Merge requests will be reviewed for correctness and we only require you to sign your work.
 
 ## Sign your work
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,37 +15,29 @@
 DOCKER   ?= docker
 REGISTRY ?= nvidia
 
-VULKAN  ?= 1.1.121
-CUDA    ?= 10.1
-VERSION ?= beta.0
+BASE    ?= ubuntu20.04
+VULKAN  ?= 1.3
+CUDA_VERSION    ?= 11.4.2
+DRIVER  ?= 470
 
-FULL_VERSION := $(VULKAN)-cuda-$(CUDA)-$(VERSION)
+FULL_VERSION := $(VULKAN)-$(DRIVER)
 
 .PHONY: all
-all: ubuntu18.04 ubuntu16.04
+all: ubuntu
 
 push:
-	$(DOCKER) push "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu16.04"
-	$(DOCKER) push "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu18.04"
+	$(DOCKER) push "$(REGISTRY)/vulkan:$(FULL_VERSION)"
 
 push-short:
-	$(DOCKER) tag "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu18.04" "$(REGISTRY)/vulkan:$(VULKAN)"
 	$(DOCKER) push "$(REGISTRY)/vulkan:$(VULKAN)"
 
 push-latest:
-	$(DOCKER) tag "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu18.04" "$(REGISTRY)/vulkan:$(VULKAN)"
 	$(DOCKER) push "$(REGISTRY)/vulkan:$(VULKAN)"
 
-ubuntu16.04:
+ubuntu:
 	$(DOCKER) build --pull \
-		--build-arg VULKAN_VERSION="v$(VULKAN)" \
-		--build-arg CUDA_VERSION="$(CUDA)" \
-		--tag "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu16.04" \
-		--file docker/Dockerfile.ubuntu18.04 .
-
-ubuntu18.04:
-	$(DOCKER) build --pull \
-		--build-arg VULKAN_VERSION="v$(VULKAN)" \
-		--build-arg CUDA_VERSION="$(CUDA)" \
-		--tag "$(REGISTRY)/vulkan:$(FULL_VERSION)-ubuntu18.04" \
-		--file docker/Dockerfile.ubuntu18.04 .
+		--build-arg BASE_DIST=$(BASE) \
+		--build-arg CUDA_VERSION=$(CUDA) \
+	   	--build-arg VULKAN_SDK_VERSION=$(VULKAN) \
+	   	--build-arg DRIVER_VERSION=$(DRIVER) \
+	    --file Dockerfile.ubuntu .

@@ -1,61 +1,204 @@
 # Vulkan
 
-## Quickstart
+## Introduction
+This project includes Dockerfiles for building a Vulkan SDK container that can be used with NVIDIA GPUs. 
 
-**Make sure you have installed the latest [NVIDIA driver](https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#how-do-i-install-the-nvidia-driver) and the [NVIDIA Container Runtime](https://github.com/NVIDIA/nvidia-docker).**
+### Pre-Requisites
 
-## CUDA 10.1 + OpenGL (glvnd 1.1) + Vulkan 1.1.121
+Before getting started, ensure that the system has the latest 
+[NVIDIA driver](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) and 
+the [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) installed.
 
-- `1.1.121-cuda-10.1-beta.0-ubuntu16.04` [(*docker/ubuntu16.04*)](https://gitlab.com/nvidia/container-images/vulkan/-/blob/beta.0/docker/Dockerfile.ubuntu16.04)
-- `1.1.121-cuda-10.1-beta.0-ubuntu18.04`, `1.1.121` [(*docker/ubuntu18.04*)](https://gitlab.com/nvidia/container-images/vulkan/-/blob/beta.0/docker/Dockerfile.ubuntu18.04)
+## Build
 
-- `1.1.121-cuda-10.1-alpha` [(*10.1/base/Dockerfile*)](https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/10.1/base/Dockerfile) + [(*glvnd/devel/Dockerfile*)](https://gitlab.com/nvidia/container-images/opengl/blob/ubuntu16.04/glvnd/devel/Dockerfile) + [(*vulkan/Dockerfile*)](https://gitlab.com/nvidia/container-images/vulkan/blob/ubuntu16.04/Dockerfile)
+Clone the git repository and then build the image:
 
-## Run
+```bash
+docker build --pull -t \
+   nvidia/vulkan:1.3-470 \
+   --build-arg BASE_DIST=ubuntu20.04 \
+   --build-arg CUDA_VERSION=11.4.2 \
+   --build-arg VULKAN_SDK_VERSION=`curl -sk https://vulkan.lunarg.com/sdk/latest/linux.txt` \
+   --file docker/Dockerfile.ubuntu .
+``` 
+
+## Usage
+
+The Vulkan SDK container is typically intended to be used as the base-layer for other Vulkan applications. 
+To see an example, refer to the `samples/` directory, which showcases how the image can be used in multi-stage 
+Docker builds. 
+
+The Vulkan SDK container however includes utilities such as `vulkaninfo`, which can be used to test whether 
+the GPUs can be enumerated by the Vulkan loader and driver. 
+
+As a first step, launch the container and open a terminal. 
+
+> **_NOTE:_**  Some of the loaders need to be currently specified on the command line with Docker 
+as bind mounts. This issue will be fixed in a future release of the NVIDIA Container Toolkit. 
+
+### Headless `vulkaninfo`
+
+A common utility to test Vulkan is to run `vulkaninfo`. In this example, we run `vulkaninfo` without 
+specifying any `DISPLAY` variables:
+
+```bash
+docker run --gpus all \
+   -e NVIDIA_DISABLE_REQUIRE=1 \
+   -e NVIDIA_DRIVER_CAPABILITIES=all --device /dev/dri \
+   -v /etc/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json \
+   -v /etc/vulkan/implicit_layer.d/nvidia_layers.json:/etc/vulkan/implicit_layer.d/nvidia_layers.json \
+   -v /usr/share/glvnd/egl_vendor.d/10_nvidia.json:/usr/share/glvnd/egl_vendor.d/10_nvidia.json \
+   -it nvidia/vulkan:1.3-470 \
+    bash
 ```
-# To run the container
-# Docker >= 19.03
-# docker run --gpus all -ti --rm nvidia/vulkan:1.1.121
+Once inside the container, run `vulkaninfo`: 
 
-# Docker < 19.03
-# docker run --runtime=nvidia -ti --rm nvidia/vulkan:1.1.121
+```console
+root@075caf680108:/# vulkaninfo
+```
 
-# To build and run the vulkan samples
-Find instructions here: https://gitlab.com/nvidia/container-images/samples/tree/master/vulkan/ubuntu16.04
+You should see an output such as below, which shows the version, enumerated GPUs and supported 
+NVIDIA extensions.
+
+```console
+==========
+VULKANINFO
+==========
+
+Vulkan Instance Version: 1.3.204
+
+...
+
+VK_LAYER_NV_optimus (NVIDIA Optimus layer) Vulkan version 1.2.175, layer version 1:
+        Layer Extensions: count = 0
+        Devices: count = 1
+                GPU id = 0 (Tesla T4)
+                Layer-Device Extensions: count = 0
+...
+
+Device Properties and Extensions:
+=================================
+GPU0:
+VkPhysicalDeviceProperties:
+---------------------------
+        apiVersion     = 4202671 (1.2.175)
+        driverVersion  = 1972256896 (0x758e4080)
+        vendorID       = 0x10de
+        deviceID       = 0x1eb8
+        deviceType     = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+        deviceName     = Tesla T4
+
+...
+
+        VK_NV_inherited_viewport_scissor          : extension revision 1
+        VK_NV_mesh_shader                         : extension revision 1
+        VK_NV_ray_tracing                         : extension revision 3
+        VK_NV_representative_fragment_test        : extension revision 2
+        VK_NV_sample_mask_override_coverage       : extension revision 1
+        VK_NV_scissor_exclusive                   : extension revision 1
+        VK_NV_shader_image_footprint              : extension revision 2
+        VK_NV_shader_sm_builtins                  : extension revision 1
+        VK_NV_shader_subgroup_partitioned         : extension revision 1
+        VK_NV_shading_rate_image                  : extension revision 3
+        VK_NV_viewport_array2                     : extension revision 1
+        VK_NV_viewport_swizzle                    : extension revision 1
+
+
+```
+
+### vkcube
+
+Another graphical utility to test the Vulkan setup is to run the `vkcube` application. This utility spins 
+up a window on the client side, so a pre-requisite is to ensure that there is an X server running on the client 
+side. 
+
+First, allow users to access the X server:
+
+```bash
+$ xhost +
+```
+
+Then, specify the `DISPLAY` environment variable before starting the container:
+
+```bash
+docker run --gpus all \
+   -e NVIDIA_DISABLE_REQUIRE=1 \
+   -v $HOME/.Xauthority:/root/.Xauthority \
+   -e DISPLAY -e NVIDIA_DRIVER_CAPABILITIES=all --device /dev/dri --net host \
+   -v /etc/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json \
+   -v /etc/vulkan/implicit_layer.d/nvidia_layers.json:/etc/vulkan/implicit_layer.d/nvidia_layers.json \
+   -v /usr/share/glvnd/egl_vendor.d/10_nvidia.json:/usr/share/glvnd/egl_vendor.d/10_nvidia.json \
+   -it nvidia/vulkan:1.3-470 \ 
+   bash
+```
+
+Once inside the container, run the `vkcube` utility:
+
+```bash
+root@075caf680108:/# vkcube
+Selected GPU 0: Tesla T4, type: 2
+```
+
+And then on the client side, you should be able to observe a spinning cube in a window:
+
+![vkcube screenshot](samples/vkcube-sample.png)
+
+## Building and Running Samples
+
+A sample container is provided to test headless Vulkan functionality - this is especially useful 
+on NVIDIA GPUs without display (i.e. datacenter class products). Two samples are included - `computeheadless`, 
+which computes Fibonacci series and a `renderheadless`, which renders an image and saves it to local storage. 
+
+A sample container has already been pre-built to test the Vulkan functionality. Simply run as:
+
+```bash
+docker run --gpus all \
+    dualvtable/vulkan-sample:latest
+```
+
+The container will run through the headless samples with an output shown below:
+
+```console
+Running headless compute example
+GPU: Tesla T4
+Compute input:
+0       1       2       3       4       5       6       7       8       9       10      11      12      13      14      15      16      17        18      19      20      21      22      23      24      25      26      27      28      29      30      31
+Compute output:
+0       1       1       2       3       5       8       13      21      34      55      89      144     233     377     610     987     1597      2584    4181    6765    10946   17711   28657   46368   75025   121393  196418  317811  514229  832040  1346269
+Finished. Press enter to terminate...\n
+
+Running headless rendering example
+GPU: Tesla T4
+Framebuffer image saved to headless.ppm
+Finished. Press enter to terminate...\n
+```
+
+### Building the sample
+
+The sample may also be built by cloning the `Dockerfile` available in the `samples/` directory 
+of the repository.
+
+```bash
+cd samples/ \ 
+&& docker build --pull -t \
+     nvidia/vulkan-sample \
+     --build-arg VULKAN_SDK_VERSION=`curl -sk https://vulkan.lunarg.com/sdk/latest/linux.txt | awk '{ printf("%.2g", $1) }` \
+     --build-arg DRIVER_VERSION=470 \
+     --file Dockerfile.ubuntu .
 ```
 
 ## Versioning
 
-The Vulkan container posses four major components:
-- The Vulkan Version (e.g: 1.1.121)
-- The CUDA Version (e.g: 10.1)
-- The Version of the container (e.g: beta.0)
-- The platform of the container (e.g: ubuntu18.04)
+The Vulkan SDK image is versioned as `<Vulkan-SDK>-<Driver-Branch>`.
 
-The overall version of the Vulkan container has two forms:
-- The long form: `${VULKAN_VERSION}-cuda-${CUDA_VERSION}-${CONTAINER_VERSION}-${PLATFORM}`
-- The short form: `${VULKAN_VERSION}`
-- The latest tag: `latest`
+## Licensing
 
-The long form is a unique tag that once pushed will always refer to the same container.
-This means that no updates will be made to that tag and it will always point to the same container.
-
-The short form refers to the latest CONTAINER_VERSION and CUDA_VERSION with the platform fixed to ubuntu18.04.
-In practice this tag is rarely updated and we are more likely to bump the CUDA_VERSION with an update of the VULKAN_VERSION.
-
-The latest tag refers to the latest short form.
-
-Note: We do not maintain multiple version branches.
-
-## Releases
-
-Release of newer versions is done on demand and does not follow Vulkan's release cadence.
-All commit to the master branch generates an image on the gitlab registry.
-Tagging a version will push an image to the nvidia/vulkan repository on the Dockerhub
+The source code in this repository is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). 
+The resulting container images are licensed under the [NGC Deep Learning Container License](https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license). 
 
 ## Issues and Contributing
 
 [Checkout the Contributing document!](CONTRIBUTING.md)
 
-* Please let us know by [filing a new issue](https://github.com/NVIDIA/nvidia-docker/issues/new)
+* Please let us know by [filing a new issue](https://gitlab.com/nvidia/container-images/vulkan/-/issues)
 * You can contribute by opening a [pull request on the gitlab repository](https://gitlab.com/nvidia/container-images/vulkan)
