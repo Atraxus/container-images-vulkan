@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgles2  \
     libxcb1-dev \
     wget \
-    vulkan-utils \
+    vulkan-tools \
     && rm -rf /var/lib/apt/lists/*
 
 #set VULKAN_SDK_VERSION as a build-arg=`curl https://vulkan.lunarg.com/sdk/latest/linux.txt`

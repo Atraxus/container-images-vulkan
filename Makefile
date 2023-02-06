@@ -15,29 +15,25 @@
 DOCKER   ?= docker
 REGISTRY ?= nvidia
 
-BASE    ?= ubuntu20.04
-VULKAN  ?= 1.3
-CUDA_VERSION    ?= 11.4.2
-DRIVER  ?= 470
-
 FULL_VERSION := $(VULKAN)-$(DRIVER)
 
 .PHONY: all
 all: ubuntu
 
-push:
-	$(DOCKER) push "$(REGISTRY)/vulkan:$(FULL_VERSION)"
-
-push-short:
-	$(DOCKER) push "$(REGISTRY)/vulkan:$(VULKAN)"
-
-push-latest:
-	$(DOCKER) push "$(REGISTRY)/vulkan:$(VULKAN)"
-
 ubuntu:
-	$(DOCKER) build --pull \
-		--build-arg BASE_DIST=$(BASE) \
-		--build-arg CUDA_VERSION=$(CUDA) \
-	   	--build-arg VULKAN_SDK_VERSION=$(VULKAN) \
-	   	--build-arg DRIVER_VERSION=$(DRIVER) \
-	    --file Dockerfile.ubuntu .
+	$(DOCKER) build -t vulkan:rayx --pull \
+		--build-arg BASE_DIST=ubuntu22.04 \
+		--build-arg CUDA_VERSION=11.8.0 \
+	   	--build-arg VULKAN_SDK_VERSION=`curl -sk https://vulkan.lunarg.com/sdk/latest/linux.txt` \
+	    	--file docker/Dockerfile.ubuntu .
+
+run: 
+	$(DOCKER) run \
+	       	--gpus all \
+   	        -e NVIDIA_DISABLE_REQUIRE=1 \
+                -e NVIDIA_DRIVER_CAPABILITIES=all --device /dev/dri \
+   		-v /etc/vulkan/icd.d/nvidia_icd.json:/etc/vulkan/icd.d/nvidia_icd.json \
+   		-v /etc/vulkan/implicit_layer.d/nvidia_layers.json:/etc/vulkan/implicit_layer.d/nvidia_layers.json \
+   		-v /usr/share/glvnd/egl_vendor.d/10_nvidia.json:/usr/share/glvnd/egl_vendor.d/10_nvidia.json \
+		-it vulkan:rayx \
+    		bash
