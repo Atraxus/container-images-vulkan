@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb1-dev \
     wget \
     vulkan-tools \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 #set VULKAN_SDK_VERSION as a build-arg=`curl https://vulkan.lunarg.com/sdk/latest/linux.txt`
@@ -50,7 +51,7 @@ RUN wget -q --show-progress \
     && mkdir -p /usr/local/lib && cp -ra /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/lib/* /usr/local/lib/ \
     && cp -a /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/lib/libVkLayer_*.so /usr/local/lib \
     && mkdir -p /usr/local/share/vulkan/explicit_layer.d \
-    && cp /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/etc/vulkan/explicit_layer.d/VkLayer_*.json /usr/local/share/vulkan/explicit_layer.d \
+    && (cp /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/etc/vulkan/explicit_layer.d/VkLayer_*.json /usr/local/share/vulkan/explicit_layer.d 2>/dev/null || true) \
     && mkdir -p /usr/local/share/vulkan/registry \
     && cp -a /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/share/vulkan/registry/* /usr/local/share/vulkan/registry \
     && cp -a /opt/vulkan/${VULKAN_SDK_VERSION}/x86_64/bin/* /usr/local/bin \
